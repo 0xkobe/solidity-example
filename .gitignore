@@ -1,0 +1,8 @@
+.vscode
+.env
+node_modules
+artifacts
+cache
+coverage.json
+coverage
+.openzeppelin
