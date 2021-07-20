@@ -139,7 +139,10 @@ contract CompanyRegister is Ownable {
         User storage user = _companyUsers[_userIdToCompanyId[userId]][
             _userIdToIndex[userId] - 1
         ];
-        require(user.wallet == msg.sender, "CR_INVALID_PERMISSION");
+        require(
+            user.wallet == msg.sender || owner() == msg.sender,
+            "CR_INVALID_PERMISSION"
+        );
 
         user.name = name;
         user.mail = mail;
@@ -154,7 +157,10 @@ contract CompanyRegister is Ownable {
         uint256 companyId = _userIdToCompanyId[userId];
         uint256 index = _userIdToIndex[userId];
         User memory user = _companyUsers[companyId][index - 1];
-        require(user.wallet == msg.sender, "CR_INVALID_PERMISSION");
+        require(
+            user.wallet == msg.sender || owner() == msg.sender,
+            "CR_INVALID_PERMISSION"
+        );
 
         uint256 length = _companyUsers[companyId].length;
         User memory lastUser = _companyUsers[companyId][length - 1];
