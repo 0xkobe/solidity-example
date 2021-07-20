@@ -5,30 +5,38 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IAggregatorV3Interface {
-  function latestRoundData()
-    external
-    view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    );
+    function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        );
 }
 
 contract CompanyRegister is Ownable {
     event CreateCompany(uint256 id, string name);
     event WithdrawRegistrationCharge(address to);
     event DistributeAward(uint256 companyId, uint256 userId, address wallet);
-    event RegisterCompany(uint256 companyId, uint256 userId, string name, uint256 mail, address wallet);
-    event UpdateUser(uint256 userId, string name, uint256 mail);
+    event RegisterCompany(
+        uint256 companyId,
+        uint256 userId,
+        string name,
+        string mail,
+        uint256 number,
+        address wallet
+    );
+    event UpdateUser(uint256 userId, string name, string mail, uint256 number);
     event DeleteUser(uint256 companyId, uint256 userId);
 
     struct User {
         uint256 id;
         string name;
-        uint256 mail;
+        string mail;
+        uint256 number;
         address wallet;
     }
 
@@ -52,7 +60,7 @@ contract CompanyRegister is Ownable {
     }
 
     function createCompany(string memory name) external onlyOwner {
-        _companyUniqueId ++;
+        _companyUniqueId++;
 
         Company memory company;
         company.id = _companyUniqueId;
@@ -71,7 +79,7 @@ contract CompanyRegister is Ownable {
         emit WithdrawRegistrationCharge(to);
     }
 
-    function distrbuteAward(uint256 companyId) payable external onlyOwner {
+    function distrbuteAward(uint256 companyId) external payable onlyOwner {
         require(msg.value != 0, "CR_NO_AWARD");
         require(_companyIdToIndex[companyId] != 0, "CR_INVALID_COMPANY_ID");
 
@@ -83,21 +91,25 @@ contract CompanyRegister is Ownable {
 
         payable(users[winnerIndex].wallet).transfer(msg.value);
 
-        emit DistributeAward(companyId, users[winnerIndex].id, users[winnerIndex].wallet);
+        emit DistributeAward(
+            companyId,
+            users[winnerIndex].id,
+            users[winnerIndex].wallet
+        );
     }
 
-    function registerCompany(uint256 companyId, string memory name, uint256 mail) payable external {
+    function registerCompany(
+        uint256 companyId,
+        string memory name,
+        string memory mail,
+        uint256 number
+    ) external payable {
         require(_companyIdToIndex[companyId] != 0, "CR_INVALID_COMPANY_ID");
         require(msg.value >= 1 ether, "CR_NOT_ENOUGH_REGISTRATION_CHARGE");
 
-        _userUniqueId ++;
+        _userUniqueId++;
         User[] storage users = _companyUsers[companyId];
-        users.push(User(
-            _userUniqueId,
-            name,
-            mail,
-            msg.sender
-        ));
+        users.push(User(_userUniqueId, name, mail, number, msg.sender));
         _userIdToCompanyId[_userUniqueId] = companyId;
         _userIdToIndex[_userUniqueId] = users.length;
 
@@ -106,19 +118,34 @@ contract CompanyRegister is Ownable {
             payable(msg.sender).transfer(msg.value - 1 ether);
         }
 
-        emit RegisterCompany(companyId, _userUniqueId, name, mail, msg.sender);
+        emit RegisterCompany(
+            companyId,
+            _userUniqueId,
+            name,
+            mail,
+            number,
+            msg.sender
+        );
     }
 
-    function updateUser(uint256 userId, string memory name, uint256 mail) external {
+    function updateUser(
+        uint256 userId,
+        string memory name,
+        string memory mail,
+        uint256 number
+    ) external {
         require(_userIdToCompanyId[userId] != 0, "CR_INVALID_USER_ID");
 
-        User storage user = _companyUsers[_userIdToCompanyId[userId]][_userIdToIndex[userId] - 1];
+        User storage user = _companyUsers[_userIdToCompanyId[userId]][
+            _userIdToIndex[userId] - 1
+        ];
         require(user.wallet == msg.sender, "CR_INVALID_PERMISSION");
 
         user.name = name;
         user.mail = mail;
+        user.number = number;
 
-        emit UpdateUser(userId, name, mail);
+        emit UpdateUser(userId, name, mail, number);
     }
 
     function deleteUser(uint256 userId) external {
@@ -142,7 +169,15 @@ contract CompanyRegister is Ownable {
         emit DeleteUser(companyId, userId);
     }
 
-    function getCompany(uint256 companyId) external view returns(uint256 id, string memory name, User[] memory users) {
+    function getCompany(uint256 companyId)
+        external
+        view
+        returns (
+            uint256 id,
+            string memory name,
+            User[] memory users
+        )
+    {
         require(_companyIdToIndex[companyId] != 0, "CR_INVALID_COMPANY_ID");
 
         Company memory company = _companies[_companyIdToIndex[companyId]];
@@ -152,33 +187,47 @@ contract CompanyRegister is Ownable {
         users = _companyUsers[companyId];
     }
 
-    function getUser(uint256 userId) external view returns (
-        uint256 companyId,
-        uint256 id,
-        string memory name,
-        uint256 mail,
-        address wallet
-    ) {
+    function getUser(uint256 userId)
+        external
+        view
+        returns (
+            uint256 companyId,
+            uint256 id,
+            string memory name,
+            string memory mail,
+            uint256 number,
+            address wallet
+        )
+    {
         require(_userIdToCompanyId[userId] != 0, "CR_INVALID_USER_ID");
 
-        User memory user = _companyUsers[_userIdToCompanyId[userId]][_userIdToIndex[userId] - 1];
+        User memory user = _companyUsers[_userIdToCompanyId[userId]][
+            _userIdToIndex[userId] - 1
+        ];
 
         companyId = _userIdToCompanyId[userId];
 
         id = user.id;
         name = user.name;
         mail = user.mail;
+        number = user.number;
         wallet = user.wallet;
     }
 
-    function getEthPrice() external view returns(uint256) {
+    function getEthPrice() external view returns (uint256) {
         // returns eth price in usd (8 decimals)
-        (, int256 price, , ,) = IAggregatorV3Interface(ethPriceAggregator).latestRoundData();
+        (, int256 price, , , ) = IAggregatorV3Interface(ethPriceAggregator)
+        .latestRoundData();
 
         return uint256(price);
     }
 
     function _randomNumber() internal view returns (uint256) {
-        return uint256(keccak256(abi.encode(block.number, block.timestamp, block.difficulty)));
+        return
+            uint256(
+                keccak256(
+                    abi.encode(block.number, block.timestamp, block.difficulty)
+                )
+            );
     }
 }
